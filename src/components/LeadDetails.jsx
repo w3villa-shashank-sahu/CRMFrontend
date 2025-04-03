@@ -40,7 +40,17 @@ function LeadDetails({ onLeadUpdated }) {
       }
     };
 
+    const fetchNotes = async () => {
+      try {
+        const response = await axios.get(`${API_BASE_URL}/leads/${id}/notes`);
+        setNotes(response.data);
+      } catch (error) {
+        console.error('Error fetching notes:', error);
+      }
+    };
+
     fetchLead();
+    fetchNotes();
   }, [id]);
 
   const handleStatusChange = async (newStatus) => {
@@ -103,7 +113,13 @@ function LeadDetails({ onLeadUpdated }) {
       const response = await axios.post(`${API_BASE_URL}/leads/${id}/notes`, {
         content: note
       });
-      setNotes(prev => [...prev, response.data]);
+      const newNote = {
+        id: response.data.id,
+        lead_id: id,
+        content: note,
+        created_at: new Date().toISOString()
+      };
+      setNotes(prev => [...prev, newNote]);
       setNote('');
     } catch (error) {
       console.error('Error adding note:', error);
@@ -114,7 +130,7 @@ function LeadDetails({ onLeadUpdated }) {
 
   const handleDeleteNote = async (noteId) => {
     try {
-      await axios.delete(`${API_BASE_URL}/leads/${id}/notes/${noteId}`);
+      await axios.delete(`${API_BASE_URL}/notes/${noteId}`);
       setNotes(prev => prev.filter(note => note.id !== noteId));
     } catch (error) {
       console.error('Error deleting note:', error);
@@ -325,7 +341,13 @@ function LeadDetails({ onLeadUpdated }) {
                 <p className="note-content">{note.content}</p>
                 <div className="note-meta">
                   <span className="note-date">
-                    {new Date(note.created_at).toLocaleString()}
+                    {new Date(note.created_at).toLocaleString('en-US', {
+                      year: 'numeric',
+                      month: 'short',
+                      day: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit'
+                    })}
                   </span>
                   <button
                     onClick={() => handleDeleteNote(note.id)}
