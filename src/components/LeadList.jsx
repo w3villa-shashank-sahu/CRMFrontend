@@ -3,35 +3,36 @@ import PropTypes from 'prop-types';
 import axios from 'axios';
 import { useState, useEffect } from 'react';
 import { API_BASE_URL } from '../constants';
+import { useLoading } from '../context/LoadingContext';
 
-function LeadList({ leads, loading, onLeadUpdated }) {
+function LeadList({ leads, onLeadUpdated }) {
   const [activeDropdown, setActiveDropdown] = useState(null);
   const [localLeads, setLocalLeads] = useState(leads);
+  const { loading, setLoading } = useLoading();
 
   useEffect(() => {
     setLocalLeads(leads);
   }, [leads]);
 
   const handleStatusChange = async (leadId, newStatus) => {
+    setLoading(true);
     try {
       await axios.patch(`${API_BASE_URL}/leads/${leadId}`, {
         status: newStatus
       });
       
-      // Update local state immediately
       setLocalLeads(prevLeads => 
         prevLeads.map(lead => 
           lead.id === leadId ? { ...lead, status: newStatus } : lead
         )
       );
       
-      // Close dropdown
       setActiveDropdown(null);
-      
-      // Notify parent component
       onLeadUpdated();
     } catch (error) {
       console.error('Error updating status:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -168,7 +169,6 @@ LeadList.propTypes = {
       status: PropTypes.string.isRequired
     })
   ).isRequired,
-  loading: PropTypes.bool.isRequired,
   onLeadUpdated: PropTypes.func.isRequired
 };
 

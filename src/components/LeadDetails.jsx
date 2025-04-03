@@ -3,16 +3,16 @@ import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import PropTypes from 'prop-types';
 import { API_BASE_URL } from '../constants';
+import { useLoading } from '../context/LoadingContext';
 
 function LeadDetails({ onLeadUpdated }) {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { loading, setLoading } = useLoading();
   const [lead, setLead] = useState(null);
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [note, setNote] = useState('');
   const [notes, setNotes] = useState([]);
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState({
     name: '',
@@ -22,38 +22,34 @@ function LeadDetails({ onLeadUpdated }) {
   });
 
   useEffect(() => {
-    const fetchLead = async () => {
+    const fetchData = async () => {
+      setLoading(true);
       try {
-        const response = await axios.get(`${API_BASE_URL}/leads/${id}`);
-        setLead(response.data);
+        const [leadResponse, notesResponse] = await Promise.all([
+          axios.get(`${API_BASE_URL}/leads/${id}`),
+          axios.get(`${API_BASE_URL}/leads/${id}/notes`)
+        ]);
+        setLead(leadResponse.data);
+        setNotes(notesResponse.data);
         setEditForm({
-          name: response.data.name,
-          occupation: response.data.occupation,
-          phone: response.data.phone,
-          address: response.data.address
+          name: leadResponse.data.name,
+          occupation: leadResponse.data.occupation,
+          phone: leadResponse.data.phone,
+          address: leadResponse.data.address
         });
-        setLoading(false);
       } catch (error) {
-        console.error('Error fetching lead:', error);
+        console.error('Error fetching data:', error);
         setError('Failed to load lead details');
+      } finally {
         setLoading(false);
       }
     };
 
-    const fetchNotes = async () => {
-      try {
-        const response = await axios.get(`${API_BASE_URL}/leads/${id}/notes`);
-        setNotes(response.data);
-      } catch (error) {
-        console.error('Error fetching notes:', error);
-      }
-    };
-
-    fetchLead();
-    fetchNotes();
-  }, [id]);
+    fetchData();
+  }, [id, setLoading]);
 
   const handleStatusChange = async (newStatus) => {
+    setLoading(true);
     try {
       await axios.patch(`${API_BASE_URL}/leads/${id}`, {
         status: newStatus
@@ -62,6 +58,8 @@ function LeadDetails({ onLeadUpdated }) {
       onLeadUpdated();
     } catch (error) {
       console.error('Error updating status:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -90,7 +88,7 @@ function LeadDetails({ onLeadUpdated }) {
 
   const handleEditSubmit = async (e) => {
     e.preventDefault();
-    setIsSubmitting(true);
+    setLoading(true);
     try {
       await axios.patch(`${API_BASE_URL}/lead/edit/${id}`, editForm);
       setLead(prev => ({ ...prev, ...editForm }));
@@ -100,7 +98,7 @@ function LeadDetails({ onLeadUpdated }) {
       console.error('Error updating lead:', error);
       setError('Failed to update lead');
     } finally {
-      setIsSubmitting(false);
+      setLoading(false);
     }
   };
 
@@ -108,32 +106,30 @@ function LeadDetails({ onLeadUpdated }) {
     e.preventDefault();
     if (!note.trim()) return;
 
-    setIsSubmitting(true);
+    setLoading(true);
     try {
-      const response = await axios.post(`${API_BASE_URL}/leads/${id}/notes`, {
+      await axios.post(`${API_BASE_URL}/leads/${id}/notes`, {
         content: note
       });
-      const newNote = {
-        id: response.data.id,
-        lead_id: id,
-        content: note,
-        created_at: new Date().toISOString()
-      };
-      setNotes(prev => [...prev, newNote]);
+      const notesResponse = await axios.get(`${API_BASE_URL}/leads/${id}/notes`);
+      setNotes(notesResponse.data);
       setNote('');
     } catch (error) {
       console.error('Error adding note:', error);
     } finally {
-      setIsSubmitting(false);
+      setLoading(false);
     }
   };
 
   const handleDeleteNote = async (noteId) => {
+    setLoading(true);
     try {
-      await axios.delete(`${API_BASE_URL}/notes/${noteId}`);
+      await axios.delete(`${API_BASE_URL}/leads/${id}/notes/${noteId}`);
       setNotes(prev => prev.filter(note => note.id !== noteId));
     } catch (error) {
       console.error('Error deleting note:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -231,9 +227,9 @@ function LeadDetails({ onLeadUpdated }) {
                   <button
                     type="submit"
                     className="btn-primary"
-                    disabled={isSubmitting}
+                    disabled={loading}
                   >
-                    {isSubmitting ? 'Saving...' : 'Save Changes'}
+                    {loading ? 'Saving...' : 'Save Changes'}
                   </button>
                 </div>
               </form>
@@ -329,9 +325,9 @@ function LeadDetails({ onLeadUpdated }) {
               type="submit"
               className="btn-primary"
               style={{ marginTop: '0.5rem' }}
-              disabled={isSubmitting || !note.trim()}
+              disabled={loading || !note.trim()}
             >
-              {isSubmitting ? 'Adding...' : 'Add Note'}
+              {loading ? 'Adding...' : 'Add Note'}
             </button>
           </form>
 

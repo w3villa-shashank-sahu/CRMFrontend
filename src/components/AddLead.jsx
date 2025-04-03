@@ -196,4 +196,8 @@ function AddLead({ onLeadAdded }) {
   );
 }
 
+AddLead.propTypes = {
+  onLeadAdded: PropTypes.func.isRequired
+};
+
 export default AddLead; 
